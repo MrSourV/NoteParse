@@ -3,7 +3,7 @@
    ═══════════════════════════════════════════ */
 
 // ── Config ────────────────────────────────────────────
-const API_KEY        = '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';
+const API_KEY        = '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';
 const FREE_PAGE_LIMIT = 20;
 const FREE_CHAT_LIMIT = 5;
 
