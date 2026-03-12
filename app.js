@@ -3,10 +3,10 @@
    ═══════════════════════════════════════════ */
 
 // ── Config ────────────────────────────────────────────
-// No API key here — it lives securely in Vercel environment variables
 const FREE_PAGE_LIMIT = 20;
 const FREE_CHAT_LIMIT = 5;
-const PROXY_URL = '/api/claude'; // Vercel serverless function
+const FREE_HISTORY_LIMIT = 10;
+const PROXY_URL = '/api/claude';
 
 // ── State ─────────────────────────────────────────────
 let files       = [];
@@ -18,6 +18,8 @@ let shuffleTmr  = null;
 let isPro       = false;
 let chatMsgs    = [];
 let chatCount   = 0;
+let flashcards  = [];
+let fcIndex     = 0;
 
 // ═══════════════════════════════════════════════════════
 // PAGE ROUTING
@@ -26,15 +28,11 @@ function showPage(id) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById('page-' + id).classList.add('active');
   window.scrollTo({ top: 0, behavior: 'smooth' });
-  if (id === 'chat' && !parsedMD) {
-    showError('No notes yet', 'Convert some notes first, then come back to chat about them!');
-    showPage('home');
-    return;
-  }
+  if (id === 'history') renderHistory();
 }
 
 // ═══════════════════════════════════════════════════════
-// PRO — demo activation (swap confirm for Stripe in prod)
+// PRO
 // ═══════════════════════════════════════════════════════
 function activatePro() {
   const confirmed = confirm('This would open a Stripe checkout for $5/month.\n\nFor demo purposes, click OK to activate Pro mode now.');
@@ -79,9 +77,7 @@ function showError(title, msg) {
   document.getElementById('errorToast').style.display = 'block';
   setTimeout(closeError, 6000);
 }
-function closeError() {
-  document.getElementById('errorToast').style.display = 'none';
-}
+function closeError() { document.getElementById('errorToast').style.display = 'none'; }
 
 // ═══════════════════════════════════════════════════════
 // FILE HANDLING
@@ -110,31 +106,24 @@ function renderThumbs() {
   const count = document.getElementById('thumbCount');
   dataURLs = new Array(files.length).fill(null);
   strip.innerHTML = '';
-
   if (!files.length) {
     count.textContent = '';
     document.getElementById('dropTitle').textContent = 'Drop your notes here';
     document.getElementById('dropSub').style.display = '';
     return;
   }
-
   document.getElementById('dropTitle').textContent = files.length + ' file' + (files.length > 1 ? 's' : '') + ' selected';
   document.getElementById('dropSub').style.display = 'none';
   count.textContent = files.length + ' image' + (files.length > 1 ? 's' : '') + ' ready to convert';
-
   files.forEach((f, i) => {
     const reader = new FileReader();
     reader.onload = ev => {
       dataURLs[i] = ev.target.result;
-      const div = document.createElement('div');
-      div.className = 'thumb-item';
-      const img = document.createElement('img');
-      img.src = ev.target.result; img.alt = 'note';
-      const btn = document.createElement('button');
-      btn.className = 'thumb-remove'; btn.textContent = '×';
+      const div = document.createElement('div'); div.className = 'thumb-item';
+      const img = document.createElement('img'); img.src = ev.target.result; img.alt = 'note';
+      const btn = document.createElement('button'); btn.className = 'thumb-remove'; btn.textContent = '×';
       btn.onclick = e => { e.stopPropagation(); removeFile(i); };
-      div.append(img, btn);
-      strip.appendChild(div);
+      div.append(img, btn); strip.appendChild(div);
     };
     reader.readAsDataURL(f);
   });
@@ -146,23 +135,19 @@ function removeFile(i) { files.splice(i, 1); renderThumbs(); }
 // SHUFFLE ANIMATION
 // ═══════════════════════════════════════════════════════
 function buildShuffle() {
-  const v = document.getElementById('shuffleViewer');
-  v.innerHTML = '';
+  const v = document.getElementById('shuffleViewer'); v.innerHTML = '';
   dataURLs.forEach((src, i) => {
     const card = document.createElement('div');
     card.className = 'shuffle-card ' + (i === 0 ? 'sc-front' : i === 1 ? 'sc-behind' : 'sc-third');
     card.id = 'sc_' + i;
-    const img = document.createElement('img');
-    img.src = src;
-    card.appendChild(img);
-    v.appendChild(card);
+    const img = document.createElement('img'); img.src = src;
+    card.appendChild(img); v.appendChild(card);
   });
   shuffleIdx = 0;
 }
 
 function advanceShuffle() {
-  const total = dataURLs.length;
-  if (total < 2) return;
+  const total = dataURLs.length; if (total < 2) return;
   const cards = document.querySelectorAll('.shuffle-card');
   cards[shuffleIdx].className = 'shuffle-card sc-exit';
   setTimeout(() => { if (cards[shuffleIdx]) cards[shuffleIdx].className = 'shuffle-card sc-third'; }, 550);
@@ -186,12 +171,10 @@ function setStepState(n, state) {
   row.querySelector('.step-check')?.remove();
   txt.className = 'step-text';
   if (state === 'active') {
-    txt.className = 'step-text step-active';
-    row.classList.add('active-row');
+    txt.className = 'step-text step-active'; row.classList.add('active-row');
     const s = document.createElement('div'); s.className = 'step-spinner'; row.appendChild(s);
   } else if (state === 'done') {
-    txt.className = 'step-text step-done';
-    row.classList.remove('active-row');
+    txt.className = 'step-text step-done'; row.classList.remove('active-row');
     const c = document.createElement('span'); c.className = 'step-check'; c.textContent = '✓'; row.appendChild(c);
   }
 }
@@ -212,7 +195,6 @@ async function doConvert() {
     setTimeout(() => document.getElementById('upload-card').style.animation = '', 400);
     return;
   }
-  // Wait for all FileReaders
   await new Promise(resolve => {
     const check = () => dataURLs.every(d => d !== null) ? resolve() : setTimeout(check, 50);
     check();
@@ -245,6 +227,10 @@ async function doConvert() {
 
     // Reset chat for new notes
     chatMsgs = []; chatCount = 0; updateChatUI();
+    resetChatPanel();
+
+    // Save to history
+    saveToHistory(parsedMD);
 
     await sleep(700);
     stopShuffle();
@@ -262,6 +248,22 @@ async function doConvert() {
       showError('Conversion failed', raw.slice(0, 200));
     }
   }
+}
+
+// ═══════════════════════════════════════════════════════
+// CLAUDE API CALL (via Vercel proxy)
+// ═══════════════════════════════════════════════════════
+async function callProxy(body) {
+  const res = await fetch(PROXY_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (!res.ok) {
+    const e = await res.json().catch(() => ({}));
+    throw new Error(e?.error?.message || 'API error ' + res.status);
+  }
+  return res.json();
 }
 
 // ═══════════════════════════════════════════════════════
@@ -296,21 +298,11 @@ async function callClaudeVision() {
   });
   content.push({ type: 'text', text: NOTE_PROMPT });
 
-  const res = await fetch(PROXY_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 4096,
-      messages: [{ role: 'user', content }]
-    })
+  const data = await callProxy({
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 4096,
+    messages: [{ role: 'user', content }]
   });
-
-  if (!res.ok) {
-    const e = await res.json().catch(() => ({}));
-    throw new Error(e?.error?.message || 'API error ' + res.status);
-  }
-  const data = await res.json();
   return (data.content?.[0]?.text || '').trim();
 }
 
@@ -320,29 +312,20 @@ async function callClaudeVision() {
 function showResult() {
   const area = document.getElementById('pdf-preview-area');
   area.innerHTML = '';
-
   const dataUri = pdfInstance.output('datauristring');
   const embed = document.createElement('embed');
-  embed.src = dataUri;
-  embed.type = 'application/pdf';
+  embed.src = dataUri; embed.type = 'application/pdf';
   embed.style.cssText = 'width:100%;min-height:520px;border:none;display:block;';
   area.appendChild(embed);
-
-  // Fallback plain text view
   const fb = document.createElement('div');
-  fb.className = 'parsed-text-view';
-  fb.id = 'parsedTextView';
-  fb.textContent = parsedMD;
-  fb.style.display = 'none';
+  fb.className = 'parsed-text-view'; fb.id = 'parsedTextView';
+  fb.textContent = parsedMD; fb.style.display = 'none';
   area.appendChild(fb);
-
   setTimeout(() => {
     try { if (!embed.offsetHeight || embed.offsetHeight < 10) { embed.style.display = 'none'; fb.style.display = 'block'; } }
     catch(e) { fb.style.display = 'block'; }
   }, 1200);
-
   document.getElementById('downloadBtn').onclick = () => pdfInstance.save('noteparse-notes.pdf');
-
   const rs = document.getElementById('result-section');
   rs.classList.add('visible');
   rs.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -376,6 +359,159 @@ function resetAll() {
 }
 
 // ═══════════════════════════════════════════════════════
+// FLASHCARDS
+// ═══════════════════════════════════════════════════════
+async function doFlashcards() {
+  if (!parsedMD) return showError('No notes', 'Convert some notes first!');
+  document.getElementById('flashcard-modal').style.display = 'flex';
+  document.getElementById('flashcard-loading').style.display = 'block';
+  document.getElementById('flashcard-content').style.display = 'none';
+
+  try {
+    const data = await callProxy({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 1500,
+      messages: [{
+        role: 'user',
+        content: `Based on these notes, generate 8-12 flashcards for studying. Return ONLY valid JSON array, no markdown, no explanation. Format: [{"q":"question","a":"answer"}, ...]\n\nNotes:\n${parsedMD.slice(0, 3000)}`
+      }]
+    });
+
+    let raw = data.content?.[0]?.text || '[]';
+    raw = raw.replace(/```json|```/g, '').trim();
+    flashcards = JSON.parse(raw);
+    fcIndex = 0;
+    renderFlashcard();
+    document.getElementById('flashcard-loading').style.display = 'none';
+    document.getElementById('flashcard-content').style.display = 'block';
+  } catch(err) {
+    closeFlashcards();
+    showError('Flashcard error', err.message);
+  }
+}
+
+function renderFlashcard() {
+  document.getElementById('fc-num').textContent = fcIndex + 1;
+  document.getElementById('fc-total').textContent = flashcards.length;
+  document.getElementById('fc-front').textContent = flashcards[fcIndex]?.q || '';
+  document.getElementById('fc-back').textContent = flashcards[fcIndex]?.a || '';
+  document.getElementById('flashcard-inner').classList.remove('flipped');
+}
+
+function flipCard() { document.getElementById('flashcard-inner').classList.toggle('flipped'); }
+function nextCard() { fcIndex = (fcIndex + 1) % flashcards.length; renderFlashcard(); }
+function prevCard() { fcIndex = (fcIndex - 1 + flashcards.length) % flashcards.length; renderFlashcard(); }
+
+function closeFlashcards(e) {
+  if (e && e.target !== document.getElementById('flashcard-modal')) return;
+  document.getElementById('flashcard-modal').style.display = 'none';
+}
+
+// ═══════════════════════════════════════════════════════
+// SUMMARY
+// ═══════════════════════════════════════════════════════
+async function doSummary() {
+  if (!parsedMD) return showError('No notes', 'Convert some notes first!');
+  document.getElementById('summary-modal').style.display = 'flex';
+  document.getElementById('summary-loading').style.display = 'block';
+  document.getElementById('summary-content').style.display = 'none';
+
+  try {
+    const data = await callProxy({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 800,
+      messages: [{
+        role: 'user',
+        content: `Summarise these notes into a concise study cheat sheet. Use short bullet points grouped by topic. Start immediately with the content, no preamble.\n\nNotes:\n${parsedMD.slice(0, 3000)}`
+      }]
+    });
+
+    const text = data.content?.[0]?.text || '';
+    document.getElementById('summary-content').innerHTML = formatChatText(text);
+    document.getElementById('summary-loading').style.display = 'none';
+    document.getElementById('summary-content').style.display = 'block';
+  } catch(err) {
+    closeSummary();
+    showError('Summary error', err.message);
+  }
+}
+
+function closeSummary(e) {
+  if (e && e.target !== document.getElementById('summary-modal')) return;
+  document.getElementById('summary-modal').style.display = 'none';
+}
+
+// ═══════════════════════════════════════════════════════
+// NOTE HISTORY (localStorage)
+// ═══════════════════════════════════════════════════════
+function saveToHistory(md) {
+  try {
+    let history = getHistory();
+    const entry = {
+      id: Date.now(),
+      date: new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+      preview: md.slice(0, 120).replace(/[#*\n]/g, ' ').trim(),
+      md
+    };
+    history.unshift(entry);
+    const limit = isPro ? 999 : FREE_HISTORY_LIMIT;
+    history = history.slice(0, limit);
+    localStorage.setItem('np_history', JSON.stringify(history));
+  } catch(e) { /* localStorage full or unavailable */ }
+}
+
+function getHistory() {
+  try { return JSON.parse(localStorage.getItem('np_history') || '[]'); }
+  catch(e) { return []; }
+}
+
+function renderHistory() {
+  const list = document.getElementById('historyList');
+  const history = getHistory();
+  if (!history.length) {
+    list.innerHTML = '<div class="history-empty"><div>📭</div><p>No conversions yet. Convert some notes and they\'ll appear here!</p></div>';
+    return;
+  }
+  list.innerHTML = history.map(entry => `
+    <div class="history-card">
+      <div class="history-card-info">
+        <div class="history-card-title">${entry.preview || 'Untitled notes'}</div>
+        <div class="history-card-meta">${entry.date}</div>
+      </div>
+      <div class="history-card-actions">
+        <button class="history-btn" onclick="loadFromHistory(${entry.id})">📄 View</button>
+        <button class="history-btn danger" onclick="deleteFromHistory(${entry.id})">✕</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function loadFromHistory(id) {
+  const history = getHistory();
+  const entry = history.find(e => e.id === id);
+  if (!entry) return;
+  parsedMD = entry.md;
+  pdfInstance = makePDF(parsedMD);
+  chatMsgs = []; chatCount = 0;
+  updateChatUI(); resetChatPanel();
+  showPage('home');
+  setTimeout(() => showResult(), 100);
+}
+
+function deleteFromHistory(id) {
+  let history = getHistory().filter(e => e.id !== id);
+  localStorage.setItem('np_history', JSON.stringify(history));
+  renderHistory();
+}
+
+function clearHistory() {
+  if (confirm('Clear all saved notes history?')) {
+    localStorage.removeItem('np_history');
+    renderHistory();
+  }
+}
+
+// ═══════════════════════════════════════════════════════
 // PDF GENERATION
 // ═══════════════════════════════════════════════════════
 function makePDF(md) {
@@ -388,9 +524,9 @@ function makePDF(md) {
   let y = MT, pageNum = 1;
 
   function header() {
-    doc.setFillColor(91,75,255);  doc.rect(0, 0, W*0.55, 7, 'F');
+    doc.setFillColor(91,75,255);   doc.rect(0, 0, W*0.55, 7, 'F');
     doc.setFillColor(176,107,255); doc.rect(W*0.55, 0, W*0.45, 7, 'F');
-    doc.setFillColor(91,75,255);  doc.roundedRect(ML, 14, 116, 24, 5, 5, 'F');
+    doc.setFillColor(91,75,255);   doc.roundedRect(ML, 14, 116, 24, 5, 5, 'F');
     doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(255,255,255);
     doc.text('NoteParse', ML+14, 30);
     doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(180,170,200);
@@ -415,8 +551,6 @@ function makePDF(md) {
   for (let li = 0; li < lines.length; li++) {
     const line = lines[li].trimEnd();
     if (line.trim() === '') { y += 7; continue; }
-
-    // Page divider
     if (line.trim() === '---') {
       chk(16);
       doc.setDrawColor(210,200,240); doc.setLineWidth(0.8); doc.line(ML, y+6, W-MR, y+6);
@@ -424,8 +558,6 @@ function makePDF(md) {
       doc.text('— continued —', W/2, y+6, { align: 'center', baseline: 'middle' });
       y += 20; continue;
     }
-
-    // H1
     if (line.startsWith('# ')) {
       const txt = line.slice(2).trim(); chk(48); y += 10;
       doc.setFillColor(242,240,255); doc.roundedRect(ML, y, CW, 28, 5, 5, 'F');
@@ -433,23 +565,17 @@ function makePDF(md) {
       doc.setFont('helvetica','bold'); doc.setFontSize(16); doc.setTextColor(26,21,35);
       doc.text(txt, ML+14, y+19); y += 40; continue;
     }
-
-    // H2
     if (line.startsWith('## ')) {
       const txt = line.slice(3).trim(); chk(36); y += 8;
       doc.setFillColor(176,107,255); doc.roundedRect(ML, y+2, 4, 18, 2, 2, 'F');
       doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.setTextColor(60,40,100);
       doc.text(txt, ML+12, y+15); y += 28; continue;
     }
-
-    // H3
     if (line.startsWith('### ')) {
       const txt = line.slice(4).trim(); chk(24); y += 4;
       doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(91,75,255);
       doc.text(txt, ML, y+11); y += 18; continue;
     }
-
-    // Diagram box
     const diagMatch = line.match(/^\[Diagram:\s*(.*?)\]?$/i);
     if (diagMatch) {
       const desc = diagMatch[1];
@@ -458,13 +584,11 @@ function makePDF(md) {
       doc.setFillColor(238,235,255); doc.setDrawColor(195,182,255); doc.setLineWidth(1);
       doc.roundedRect(ML, y, CW, bH, 7, 7, 'FD');
       doc.setFont('helvetica','bold'); doc.setFontSize(8.5); doc.setTextColor(139,91,255);
-      doc.text('📊  DIAGRAM / FIGURE', ML+12, y+14);
+      doc.text('DIAGRAM / FIGURE', ML+12, y+14);
       doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(100,80,140);
       dL.forEach((dl, di) => doc.text(dl, ML+12, y+26+di*12));
       y += bH+12; continue;
     }
-
-    // Table row
     if (line.startsWith('|')) {
       const cells = line.split('|').filter((_,i,a) => i > 0 && i < a.length-1).map(c => c.trim());
       if (cells.every(c => /^[-:]+$/.test(c))) continue;
@@ -476,14 +600,11 @@ function makePDF(md) {
       doc.rect(ML, y, CW, 16, 'F');
       doc.setDrawColor(210,202,240); doc.setLineWidth(0.3); doc.rect(ML, y, CW, 16, 'D');
       cells.forEach((cell, ci) => {
-        const cx = ML + ci * colW;
-        doc.rect(cx, y, colW, 16, 'D');
+        const cx = ML + ci * colW; doc.rect(cx, y, colW, 16, 'D');
         doc.text(doc.splitTextToSize(cell, colW-6)[0], cx+4, y+11);
       });
       y += 16; continue;
     }
-
-    // Bullet
     const bm = line.match(/^(\s*)([-*•])\s+(.*)/);
     if (bm) {
       const ind = Math.floor(bm[1].length/2) * 12, txt = bm[3];
@@ -493,8 +614,6 @@ function makePDF(md) {
       wr.forEach((wl, wi) => doc.text(wl, ML+ind+13, y+8+wi*13));
       y += wr.length*13+4; continue;
     }
-
-    // Numbered list
     const nm = line.match(/^(\s*)(\d+)\.\s+(.*)/);
     if (nm) {
       const ind = Math.floor(nm[1].length/2) * 12, num = nm[2], txt = nm[3];
@@ -506,8 +625,6 @@ function makePDF(md) {
       wr.forEach((wl, wi) => doc.text(wl, ML+ind+22, y+10+wi*13));
       y += wr.length*13+4; continue;
     }
-
-    // Bold line
     if (line.startsWith('**') && line.endsWith('**')) {
       const txt = line.slice(2,-2);
       const wr = doc.splitTextToSize(txt, CW); chk(wr.length*13+2);
@@ -515,8 +632,6 @@ function makePDF(md) {
       wr.forEach((wl, wi) => doc.text(wl, ML, y+10+wi*13));
       y += wr.length*13+2; continue;
     }
-
-    // Equation or plain text
     const isEq = /[=^*/\\]/.test(line) && line.length < 120 && !/[a-zA-Z]{8,}/.test(line);
     const wr = doc.splitTextToSize(line, isEq ? CW-20 : CW);
     chk(wr.length*13+3);
@@ -532,7 +647,6 @@ function makePDF(md) {
       y += wr.length*13+4;
     }
   }
-
   return doc;
 }
 
@@ -543,17 +657,29 @@ function updateChatUI() {
   const isMaxed = !isPro && chatCount >= FREE_CHAT_LIMIT;
   document.getElementById('chatUpgradeWall').style.display = isMaxed ? 'block' : 'none';
   document.getElementById('chatInputRow').style.display   = isMaxed ? 'none'  : 'flex';
-
   for (let i = 1; i <= 5; i++) {
     const dot = document.getElementById('ld' + i);
     if (dot) dot.classList.toggle('used', i <= chatCount);
   }
-
   const el = document.getElementById('msgsLeft');
   if (el) el.textContent = isPro ? '∞' : Math.max(0, FREE_CHAT_LIMIT - chatCount);
-
   const bar = document.getElementById('chatLimitBar');
   if (isPro && bar) bar.style.display = 'none';
+}
+
+function resetChatPanel() {
+  const msgs = document.getElementById('chatMessages');
+  msgs.innerHTML = `
+    <div class="chat-msg">
+      <div class="msg-avatar ai">🤖</div>
+      <div class="msg-bubble ai"><p>I've read your notes! Ask me anything, or use the quick buttons above.</p></div>
+    </div>`;
+}
+
+function quickPrompt(text) {
+  const input = document.getElementById('chatInput');
+  input.value = text;
+  sendChat();
 }
 
 async function sendChat() {
@@ -566,30 +692,21 @@ async function sendChat() {
   addChatBubble('user', text);
   document.getElementById('chatSendBtn').disabled = true;
 
-  const systemPrompt = `You are a helpful study assistant. The user has converted their handwritten notes into the following text, and you are answering questions about it. Be concise, helpful, and smart. Here are their notes:\n\n---\n${parsedMD}\n---`;
-
+  const systemPrompt = `You are a helpful study assistant. The user has converted their handwritten notes into the following text. Be concise, helpful, and smart.\n\nNotes:\n---\n${parsedMD}\n---`;
   chatMsgs.push({ role: 'user', content: text });
 
   const thinkId = 'think_' + Date.now();
   addChatBubble('ai', '…', thinkId, true);
 
   try {
-    const res = await fetch(PROXY_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 1024,
-        system: systemPrompt,
-        messages: chatMsgs
-      })
+    const data = await callProxy({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 1024,
+      system: systemPrompt,
+      messages: chatMsgs
     });
-
-    if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e?.error?.message || 'API error'); }
-    const data = await res.json();
     const reply = data.content?.[0]?.text || "Sorry, I couldn't get a response.";
     chatMsgs.push({ role: 'assistant', content: reply });
-
     const thinkEl = document.getElementById(thinkId);
     if (thinkEl) { thinkEl.innerHTML = formatChatText(reply); thinkEl.classList.remove('thinking'); }
   } catch(err) {
@@ -604,11 +721,10 @@ async function sendChat() {
 }
 
 function formatChatText(text) {
-  return text
+  return '<p>' + text
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     .replace(/\n\n/g, '</p><p>')
-    .replace(/\n/g, '<br>')
-    .replace(/^(.+)$/, '<p>$1</p>');
+    .replace(/\n/g, '<br>') + '</p>';
 }
 
 function addChatBubble(role, text, id = '', thinking = false) {
