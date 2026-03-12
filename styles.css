@@ -242,3 +242,72 @@ footer span { color: var(--purple); font-weight: 600; }
   .card { padding: 20px 16px; }
   #page-chat, #page-pro { padding: 24px 16px 48px; }
 }
+
+/* ══════════════════════════════════════════
+   NEW FEATURES — Result layout, Chat panel,
+   Flashcards, Summary, History, Modals
+══════════════════════════════════════════ */
+
+/* ── Side-by-side result layout ── */
+.result-layout { display:flex; gap:20px; align-items:flex-start; margin-bottom:0; }
+.pdf-col { flex:1.2; min-width:0; }
+.chat-col { width:340px; flex-shrink:0; position:sticky; top:80px; }
+
+/* ── Inline chat panel ── */
+.chat-panel { background:rgba(255,255,255,.62); backdrop-filter:blur(20px); border:1px solid var(--glass-border); border-radius:20px; overflow:hidden; box-shadow:0 4px 24px rgba(91,75,255,.08); display:flex; flex-direction:column; height:600px; }
+.chat-panel-header { padding:14px 16px 10px; border-bottom:1px solid rgba(91,75,255,.08); flex-shrink:0; }
+.chat-panel-header span { font-size:14px; font-weight:800; color:var(--text-dark); display:block; margin-bottom:8px; }
+.quick-btns { display:flex; gap:6px; flex-wrap:wrap; }
+.quick-btn { padding:4px 10px; border-radius:20px; border:1.5px solid rgba(91,75,255,.2); background:rgba(91,75,255,.06); font-family:'Inter',sans-serif; font-size:11px; font-weight:700; color:var(--purple); cursor:pointer; transition:all .15s; }
+.quick-btn:hover { background:var(--purple); color:#fff; }
+#chatLimitBar { margin:8px 12px 0; padding:7px 12px; border-radius:10px; }
+#page-home .chat-messages { min-height:0; max-height:none; flex:1; border-radius:0; border:none; box-shadow:none; background:transparent; padding:14px; margin-bottom:0; }
+#page-home .chat-input-row { padding:10px 12px; border-top:1px solid rgba(91,75,255,.08); flex-shrink:0; }
+#page-home .chat-input { border-radius:10px; min-height:40px; padding:10px 13px; font-size:12px; }
+#page-home .chat-send { width:40px; height:40px; border-radius:10px; font-size:15px; }
+#page-home #chatUpgradeWall { margin:8px 12px; padding:16px; }
+#page-home #chatUpgradeWall h3 { font-size:14px; }
+#page-home #chatUpgradeWall p { font-size:12px; }
+
+/* ── Modals ── */
+.modal-overlay { position:fixed; inset:0; z-index:150; background:rgba(26,21,35,.6); backdrop-filter:blur(8px); display:flex; align-items:center; justify-content:center; padding:20px; animation:fadeIn .2s ease; }
+@keyframes fadeIn { from{opacity:0} to{opacity:1} }
+.modal-box { background:#fff; border-radius:24px; width:100%; max-width:520px; max-height:85vh; overflow-y:auto; box-shadow:0 24px 80px rgba(0,0,0,.25); animation:slideUp .25s ease; }
+@keyframes slideUp { from{transform:translateY(20px);opacity:0} to{transform:translateY(0);opacity:1} }
+.modal-header { display:flex; align-items:center; justify-content:space-between; padding:20px 24px 16px; border-bottom:1px solid rgba(91,75,255,.08); font-size:16px; font-weight:800; color:var(--text-dark); position:sticky; top:0; background:#fff; z-index:1; }
+.modal-close { background:none; border:none; font-size:22px; cursor:pointer; color:var(--text-soft); line-height:1; padding:0; }
+
+/* ── Flashcards ── */
+.fc-progress { text-align:center; font-size:13px; font-weight:600; color:var(--text-soft); padding:16px 24px 0; }
+.flashcard { perspective:1000px; cursor:pointer; padding:20px 24px; }
+.flashcard-inner { position:relative; width:100%; min-height:180px; transition:transform .5s cubic-bezier(.4,0,.2,1); transform-style:preserve-3d; }
+.flashcard-inner.flipped { transform:rotateY(180deg); }
+.flashcard-front, .flashcard-back { position:absolute; width:100%; min-height:180px; backface-visibility:hidden; border-radius:16px; padding:24px; display:flex; align-items:center; justify-content:center; text-align:center; font-size:14px; line-height:1.6; }
+.flashcard-front { background:linear-gradient(135deg,rgba(91,75,255,.08),rgba(176,107,255,.08)); border:1.5px solid rgba(91,75,255,.15); color:var(--text-dark); font-weight:600; }
+.flashcard-back { background:linear-gradient(135deg,rgba(0,168,121,.08),rgba(0,201,167,.08)); border:1.5px solid rgba(0,168,121,.2); transform:rotateY(180deg); color:#1a3a30; }
+.fc-hint { text-align:center; font-size:11px; color:var(--text-soft); margin:-8px 0 0; }
+.fc-controls { display:flex; gap:10px; justify-content:center; padding:16px 24px 24px; }
+
+/* ── Summary modal ── */
+.summary-body { padding:24px; font-size:13px; line-height:1.8; color:var(--text-dark); white-space:pre-wrap; }
+
+/* ── History page ── */
+.history-empty { text-align:center; padding:60px 24px; color:var(--text-soft); }
+.history-empty div { font-size:48px; margin-bottom:12px; }
+.history-card { background:rgba(255,255,255,.65); backdrop-filter:blur(16px); border:1px solid var(--glass-border); border-radius:16px; padding:18px 20px; margin-bottom:12px; cursor:pointer; transition:transform .15s, box-shadow .15s; display:flex; align-items:center; justify-content:space-between; gap:16px; }
+.history-card:hover { transform:translateY(-2px); box-shadow:0 6px 24px rgba(91,75,255,.12); }
+.history-card-info { flex:1; min-width:0; }
+.history-card-title { font-size:14px; font-weight:700; color:var(--text-dark); margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.history-card-meta { font-size:12px; color:var(--text-soft); }
+.history-card-actions { display:flex; gap:8px; flex-shrink:0; }
+.history-btn { padding:6px 12px; border-radius:8px; border:1.5px solid rgba(91,75,255,.18); background:transparent; font-family:'Inter',sans-serif; font-size:11px; font-weight:700; color:var(--purple); cursor:pointer; transition:all .15s; }
+.history-btn:hover { background:var(--purple); color:#fff; }
+.history-btn.danger { border-color:rgba(255,80,80,.2); color:#ff5050; }
+.history-btn.danger:hover { background:#ff5050; color:#fff; }
+
+/* ── Responsive for side-by-side ── */
+@media(max-width:860px) {
+  .result-layout { flex-direction:column; }
+  .chat-col { width:100%; position:static; }
+  .chat-panel { height:420px; }
+}
