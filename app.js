@@ -3,8 +3,7 @@
    ═══════════════════════════════════════════ */
 
 // ── Config ────────────────────────────────────────────
-// API_KEY is loaded from config.js (gitignored — never commit that file)
-// config.js should contain exactly one line: const API_KEY = 'sk-ant-...';
+const API_KEY        = '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';
 const FREE_PAGE_LIMIT = 20;
 const FREE_CHAT_LIMIT = 5;
 
