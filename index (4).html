@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>NoteParse — AI-Powered Note Conversion</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <link rel="stylesheet" href="styles.css"/>
+</head>
+<body>
+
+<!-- Background -->
+<div class="blob-layer" aria-hidden="true">
+  <div class="blob b1"></div>
+  <div class="blob b2"></div>
+  <div class="blob b3"></div>
+  <div class="blob b4"></div>
+</div>
+<div class="grid-overlay" aria-hidden="true"></div>
+
+<!-- ── Nav ── -->
+<nav>
+  <a class="logo" onclick="showPage('home')">
+    <div class="logo-icon">📝</div>NoteParse
+  </a>
+  <div class="nav-links">
+    <a class="nav-link" href="#how-it-works">How it works</a>
+    <a class="nav-link" href="#examples">Examples</a>
+    <a class="nav-link" onclick="showPage('pro')" style="-webkit-text-fill-color:initial">Pricing</a>
+  </div>
+  <button class="btn-gopro" onclick="showPage('pro')">Go Pro ✦</button>
+</nav>
+
+<!-- ══════════════════════════════════════════
+     HOME PAGE
+══════════════════════════════════════════ -->
+<div id="page-home" class="page active">
+
+  <section class="hero">
+    <div class="badge"><div class="badge-dot"></div>AI-Powered · Claude Vision</div>
+    <h1 class="heading">Turn messy notes into<br><span class="grad">clean, readable text</span></h1>
+    <p class="subtitle">Upload photos of handwritten notes, homework, or whiteboards. Claude reads everything — diagrams, equations, scribbles — and builds a beautiful PDF.</p>
+
+    <div class="card" id="upload-card">
+      <div class="dropzone" id="dropzone"
+        onclick="triggerFile()"
+        ondragover="onDragOver(event)"
+        ondragleave="onDragLeave()"
+        ondrop="onDrop(event)">
+        <div class="drop-icon">🗒️</div>
+        <div class="drop-title" id="dropTitle">Drop your notes here</div>
+        <div class="drop-sub"   id="dropSub">or click to browse · multiple files OK</div>
+        <div class="tag-row">
+          <span class="tag">JPG</span>
+          <span class="tag">PNG</span>
+          <span class="tag">PDF</span>
+          <span class="tag">HEIC</span>
+          <span class="tag">WEBP</span>
+        </div>
+        <input type="file" id="fileInput"
+          accept=".jpg,.jpeg,.png,.webp,.heic,.pdf"
+          multiple style="display:none"
+          onchange="onFileChange(event)"
+          onclick="event.stopPropagation()"/>
+      </div>
+
+      <div class="thumb-strip" id="thumbStrip"></div>
+      <div class="thumb-count"  id="thumbCount"></div>
+      <div class="limit-note"   id="limitNote">
+        Free plan: up to <strong>20 pages</strong> per conversion ·
+        <a onclick="showPage('pro')">Go Pro for unlimited ✦</a>
+      </div>
+
+      <button class="btn-convert" id="convertBtn" onclick="doConvert()">
+        ✨ Convert to Clean Text
+      </button>
+      <p class="privacy-note">🔒 Powered by Claude · Your files never stored</p>
+    </div>
+
+    <div class="chips-row">
+      <div class="chip"><div class="chip-dot" style="background:#5b4bff"></div>⚡ Claude Vision AI</div>
+      <div class="chip"><div class="chip-dot" style="background:#ff6b6b"></div>🧠 Reads diagrams too</div>
+      <div class="chip"><div class="chip-dot" style="background:#00c9a7"></div>📄 Exports clean PDF</div>
+      <div class="chip"><div class="chip-dot" style="background:#ffb347"></div>✨ Math &amp; equations</div>
+    </div>
+  </section>
+
+  <!-- Result -->
+  <section id="result-section">
+    <div class="result-header">
+      <div class="result-title">📄 Your Clean Notes</div>
+      <div class="result-actions">
+        <button class="btn-action secondary" onclick="doCopy()">📋 Copy Text</button>
+        <button class="btn-action green"     onclick="showPage('chat')">💬 Ask AI about these notes</button>
+        <button class="btn-action primary"   id="downloadBtn">⬇️ Download PDF</button>
+      </div>
+    </div>
+    <div class="pdf-wrap">
+      <div class="pdf-bar">
+        <div class="dot-r"></div>
+        <div class="dot-y"></div>
+        <div class="dot-g"></div>
+        <span class="pdf-bar-title">noteparse-output.pdf</span>
+      </div>
+      <div id="pdf-preview-area"></div>
+    </div>
+    <button class="btn-new" onclick="resetAll()">+ Convert another set of notes</button>
+  </section>
+
+  <!-- How it works -->
+  <section id="how-it-works">
+    <p class="section-label">Process</p>
+    <h2 class="section-title">How it works</h2>
+    <p class="section-sub">From blurry photo to formatted PDF in under 30 seconds.</p>
+    <div class="steps-grid">
+      <div class="step-card">
+        <div class="step-num">1</div>
+        <div class="step-emoji">📸</div>
+        <div class="step-name">Upload photos</div>
+        <div class="step-desc">Drag one or many photos of notes, whiteboards, or homework sheets.</div>
+      </div>
+      <div class="step-card">
+        <div class="step-num">2</div>
+        <div class="step-emoji">🤖</div>
+        <div class="step-name">AI reads everything</div>
+        <div class="step-desc">Claude Vision analyses handwriting, diagrams, equations, and tables.</div>
+      </div>
+      <div class="step-card">
+        <div class="step-num">3</div>
+        <div class="step-emoji">📥</div>
+        <div class="step-name">Download clean PDF</div>
+        <div class="step-desc">Get a beautifully formatted, searchable PDF ready to study from.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Examples -->
+  <section id="examples">
+    <p class="section-label">Use cases</p>
+    <h2 class="section-title">Works for every kind of note</h2>
+    <p class="section-sub">Students, researchers, professionals — if it's written, we can parse it.</p>
+    <div class="ex-grid">
+      <div class="ex-card"><div class="ex-emoji">🎓</div><div class="ex-label">Lecture Notes</div><div class="ex-desc">Turn rapid classroom scribbles into searchable study material.</div></div>
+      <div class="ex-card"><div class="ex-emoji">📐</div><div class="ex-label">Math &amp; Physics</div><div class="ex-desc">Equations, proofs, and diagrams all perfectly transcribed.</div></div>
+      <div class="ex-card"><div class="ex-emoji">🗓️</div><div class="ex-label">Meeting Notes</div><div class="ex-desc">Whiteboard brainstorms converted to clean action items.</div></div>
+      <div class="ex-card"><div class="ex-emoji">📓</div><div class="ex-label">Homework Sheets</div><div class="ex-desc">Complex multi-subject homework parsed with full context.</div></div>
+    </div>
+  </section>
+
+  <footer>
+    Made with ♥ by <span>NoteParse</span> &nbsp;·&nbsp;
+    Powered by <span>Claude Vision API</span> &nbsp;·&nbsp;
+    No data stored
+  </footer>
+</div>
+
+<!-- ══════════════════════════════════════════
+     AI CHAT PAGE
+══════════════════════════════════════════ -->
+<div id="page-chat" class="page">
+  <div class="chat-header">
+    <h2>💬 Ask AI about your notes</h2>
+    <p>Claude has read your notes and can answer questions, summarise, explain concepts, and more.</p>
+  </div>
+
+  <div class="chat-limit-bar" id="chatLimitBar">
+    <div class="limit-dots">
+      <div class="limit-dot used" id="ld1"></div>
+      <div class="limit-dot"      id="ld2"></div>
+      <div class="limit-dot"      id="ld3"></div>
+      <div class="limit-dot"      id="ld4"></div>
+      <div class="limit-dot"      id="ld5"></div>
+    </div>
+    <div class="limit-text">
+      <span id="msgsLeft">5</span> messages remaining ·
+      <a onclick="showPage('pro')" style="color:var(--purple);cursor:pointer;font-weight:700">Go Pro for unlimited ✦</a>
+    </div>
+  </div>
+
+  <div class="chat-messages" id="chatMessages">
+    <div class="chat-msg">
+      <div class="msg-avatar ai">🤖</div>
+      <div class="msg-bubble ai">
+        <p>Hey! I've read through your notes. What would you like to know? I can:</p>
+        <p>• Summarise key points &nbsp;• Explain any concept &nbsp;• Quiz you on the material &nbsp;• Highlight what to study &nbsp;• Answer any question about the content</p>
+      </div>
+    </div>
+  </div>
+
+  <div id="chatUpgradeWall" class="chat-upgrade-wall" style="display:none">
+    <div style="font-size:36px;margin-bottom:12px">🔒</div>
+    <h3>You've used your 5 free messages</h3>
+    <p>Upgrade to Pro for unlimited AI conversations about your notes — forever.</p>
+    <button class="btn-action primary" onclick="showPage('pro')" style="margin:0 auto;display:inline-flex">
+      Unlock Pro for $5 ✦
+    </button>
+  </div>
+
+  <div class="chat-input-row" id="chatInputRow">
+    <textarea
+      class="chat-input" id="chatInput"
+      placeholder="Ask anything about your notes…"
+      rows="1"
+      onkeydown="chatKeydown(event)"
+      oninput="autoResize(this)"></textarea>
+    <button class="chat-send" id="chatSendBtn" onclick="sendChat()">➤</button>
+  </div>
+
+  <button class="btn-new" style="margin-top:14px" onclick="showPage('home')">← Back to notes</button>
+</div>
+
+<!-- ══════════════════════════════════════════
+     PRO / PRICING PAGE
+══════════════════════════════════════════ -->
+<div id="page-pro" class="page">
+
+  <div class="pro-hero">
+    <p class="section-label">Pricing</p>
+    <h1>Simple, honest pricing</h1>
+    <p>One plan. No tricks. Cancel anytime.</p>
+  </div>
+
+  <div class="plans-grid">
+
+    <!-- Free -->
+    <div class="plan-card">
+      <div class="plan-name">Free</div>
+      <div class="plan-price">$0<span>/mo</span></div>
+      <div class="plan-desc">Perfect for trying it out</div>
+      <ul class="plan-features">
+        <li>Up to 20 pages per conversion</li>
+        <li>AI-powered PDF generation</li>
+        <li>5 AI chat messages per session</li>
+        <li>Download &amp; copy notes</li>
+        <li class="no">Unlimited pages</li>
+        <li class="no">Unlimited AI chat</li>
+        <li class="no">Priority processing</li>
+      </ul>
+      <button class="btn-plan secondary" onclick="showPage('home')">Start Free →</button>
+    </div>
+
+    <!-- Pro -->
+    <div class="plan-card featured">
+      <div class="plan-popular">Most Popular</div>
+      <div class="plan-name">Pro ✦</div>
+      <div class="plan-price">$5<span>/mo</span></div>
+      <div class="plan-desc">For students &amp; professionals who use it daily</div>
+      <ul class="plan-features">
+        <li>Unlimited pages per conversion</li>
+        <li>AI-powered PDF generation</li>
+        <li>Unlimited AI chat messages</li>
+        <li>Download &amp; copy notes</li>
+        <li>Priority processing speed</li>
+        <li>Export history</li>
+        <li>Early access to new features</li>
+      </ul>
+      <button class="btn-plan primary" onclick="activatePro()">Unlock Pro for $5 ✦</button>
+    </div>
+
+  </div>
+
+  <!-- FAQ -->
+  <div class="faq-section">
+    <h2>Frequently asked questions</h2>
+
+    <div class="faq-item" onclick="toggleFaq(this)">
+      <div class="faq-q">What does "unlimited pages" mean?</div>
+      <div class="faq-a">Free users can convert up to 20 images per session. Pro users can upload and convert as many as they want in a single conversion.</div>
+    </div>
+
+    <div class="faq-item" onclick="toggleFaq(this)">
+      <div class="faq-q">How does the AI chat work?</div>
+      <div class="faq-a">After converting your notes, Claude has full context of everything in your document. You can ask it to summarise, explain, quiz you, or answer any question about the content. Free users get 5 messages per session; Pro gets unlimited.</div>
+    </div>
+
+    <div class="faq-item" onclick="toggleFaq(this)">
+      <div class="faq-q">What payment methods are accepted?</div>
+      <div class="faq-a">All major credit and debit cards are accepted via Stripe. Your payment info is never stored on our servers.</div>
+    </div>
+
+    <div class="faq-item" onclick="toggleFaq(this)">
+      <div class="faq-q">Can I cancel anytime?</div>
+      <div class="faq-a">Yes — cancel with one click, no questions asked. You keep Pro access until the end of your billing period.</div>
+    </div>
+  </div>
+
+  <button class="btn-new" style="max-width:400px;margin:32px auto 0;display:block" onclick="showPage('home')">
+    ← Back to NoteParse
+  </button>
+
+</div>
+
+<!-- ── Loading Overlay ── -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="shuffle-viewer" id="shuffleViewer"></div>
+  <div class="loading-info">
+    <div class="loading-label" id="loadingLabel">Reading your notes…</div>
+    <div class="loading-sub"   id="loadingSub">Claude Vision is analysing your handwriting</div>
+  </div>
+  <div class="progress-wrap">
+    <div class="progress-bar" id="progressBar"></div>
+  </div>
+  <div class="steps-list">
+    <div class="step-row" id="sr1"><span class="step-icon-sm">📸</span><span class="step-text step-active" id="st1">Encoding images</span></div>
+    <div class="step-row" id="sr2"><span class="step-icon-sm">🧠</span><span class="step-text"             id="st2">AI parsing content</span></div>
+    <div class="step-row" id="sr3"><span class="step-icon-sm">✍️</span><span class="step-text"             id="st3">Structuring your notes</span></div>
+    <div class="step-row" id="sr4"><span class="step-icon-sm">📄</span><span class="step-text"             id="st4">Generating PDF</span></div>
+  </div>
+</div>
+
+<!-- ── Error Toast ── -->
+<div id="errorToast">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+    <div>
+      <div style="font-weight:700;font-size:14px;margin-bottom:4px" id="errorTitle">⚠️ Error</div>
+      <div style="color:#c0b8d8" id="errorMsg"></div>
+    </div>
+    <button onclick="closeError()" style="background:none;border:none;color:#c0b8d8;font-size:18px;cursor:pointer">×</button>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
