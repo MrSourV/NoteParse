@@ -3,8 +3,10 @@
    ═══════════════════════════════════════════ */
 
 // ── Config ────────────────────────────────────────────
+// No API key here — it lives securely in Vercel environment variables
 const FREE_PAGE_LIMIT = 20;
 const FREE_CHAT_LIMIT = 5;
+const PROXY_URL = '/api/claude'; // Vercel serverless function
 
 // ── State ─────────────────────────────────────────────
 let files       = [];
@@ -294,14 +296,9 @@ async function callClaudeVision() {
   });
   content.push({ type: 'text', text: NOTE_PROMPT });
 
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
+  const res = await fetch(PROXY_URL, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': API_KEY,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true'
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 4096,
@@ -577,14 +574,9 @@ async function sendChat() {
   addChatBubble('ai', '…', thinkId, true);
 
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const res = await fetch(PROXY_URL, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': API_KEY,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
         max_tokens: 1024,
